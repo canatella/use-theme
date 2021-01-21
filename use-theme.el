@@ -122,12 +122,12 @@ This is usefull if you want to override some theme colors."
                                          (cdr keywords)) plist))
   (cl-defmacro
       use-theme
-      (theme &rest use-package-args &key disabled config name style custom-face &allow-other-keys)
+      (package &rest use-package-args &key disabled config name style custom-face &allow-other-keys)
     "Use package wrapper for a theme.
 
 Specific keyword arguments:
 
-:NAME is the theme name to load if different from package with the -theme suffix removed.
+:NAME is the theme name to load if different from package with  any `-theme*' suffix removed.
 
 :STYLE is the style to map to the theme, for example `dark'. The
 theme can then be switched using `use-theme-switch' or
@@ -135,8 +135,7 @@ theme can then be switched using `use-theme-switch' or
     (declare (indent 1))
     (when (not disabled)
       (let ((name (or name
-                      theme))
-            (package (intern (concat (symbol-name theme) "-theme"))))
+                      (intern (replace-regexp-in-string "-theme.*$" "" (symbol-name package))))))
         `(use-package
            ,package
            ,@(use-theme-plist-remove use-package-args
