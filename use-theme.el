@@ -32,6 +32,7 @@
 
 ;;; Code:
 (require 'seq)
+(require 'cl-macs)
 
 (defgroup use-theme nil
   "Use theme customization"
