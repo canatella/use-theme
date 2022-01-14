@@ -32,19 +32,17 @@
 
 ;;; Code:
 (require 'seq)
+(require 'map)
 (require 'cl-macs)
 
-(defgroup use-theme nil
-  "Use theme customization"
-  :group 'convenience)
+(defgroup use-theme nil "Use theme customization" :group 'convenience)
 
 (defcustom use-theme-styles nil
   "A list mapping theme to a style.
 
 The first style will be used as a default."
   :group 'use-theme
-  :type '(alist :key-type symbol
-                :value-type symbol))
+  :type '(alist :key-type symbol :value-type symbol))
 
 (defcustom use-theme-faces nil
   "A list mapping faces to a style.
@@ -53,28 +51,24 @@ This is usefull if you want to override some theme colors."
   :group 'use-theme
   :type '(alist :key-type symbol))
 
-(defvar use-theme-style 'light
-  "Current theme style.")
+(defvar use-theme-style 'light "Current theme style.")
 
-(defun use-theme-styles
-    (&optional
-     without)
+(defun use-theme-styles (&optional without)
   "Return the list of available style, removing WITHOUT style is provided."
-  (seq-filter (lambda (s)
-                (not (equal s without)))
-              (map-keys use-theme-styles)))
+  (seq-filter
+   (lambda (s) (not (equal s without)))
+   (map-keys use-theme-styles)))
 
 
 
 (defun use-theme-next-style-rec (style styles)
   "Return style following STYLE in STYLES or the first if there are none."
-  (seq-let (current &rest rest) styles (if (and style
-                                                current
-                                                rest)
-                                           (if (equal style current)
-                                               (car rest)
-                                             (use-theme-next-style-rec style rest))
-                                         (caar use-theme-styles))))
+  (seq-let
+      (current &rest rest)
+      styles
+    (if (and style current rest)
+        (if (equal style current) (car rest) (use-theme-next-style-rec style rest))
+      (caar use-theme-styles))))
 
 (defun use-theme-next-style ()
   "Return the next style in the style list."
@@ -83,26 +77,25 @@ This is usefull if you want to override some theme colors."
 
 (defun use-theme-sha256 (theme)
   "Return the sha256 for the current version of THEME."
-  (let ((file (locate-file (concat (symbol-name theme) "-theme.el")
-                           (custom-theme--load-path)
-                           '("" "c"))))
-    (with-temp-buffer (insert-file-contents file)
-                      (secure-hash 'sha256 (current-buffer)))))
+  (let ((file
+         (locate-file
+          (concat (symbol-name theme) "-theme.el")
+          (custom-theme--load-path)
+          '("" "c"))))
+    (with-temp-buffer (insert-file-contents file) (secure-hash 'sha256 (current-buffer)))))
 
 ;;;###autoload
 (defun use-theme-switch (style)
   "Switch to theme STYLE."
-  (interactive (list (completing-read "Style: " (use-theme-styles) nil t nil nil
-                                      (use-theme-next-style))))
+  (interactive
+   (list (completing-read "Style: " (use-theme-styles) nil t nil nil (use-theme-next-style))))
   (setq use-theme-style style)
   (seq-do #'disable-theme custom-enabled-themes)
-  (load-theme (map-elt use-theme-styles use-theme-style))
-  (custom-set-faces (map-elt use-theme-faces use-theme-style)))
+  (load-theme (map-elt use-theme-styles use-theme-style)))
 
 (defun use-theme-add (list style object)
   "Add STYLE, OBJECT to LIST."
-  (append (map-delete list style)
-          `((,style . , object))))
+  (append (map-delete list style) `((,style . , object))))
 
 ;;;###autoload
 (defun use-theme-default ()
@@ -119,8 +112,10 @@ This is usefull if you want to override some theme colors."
 (with-eval-after-load 'use-package
   (defun use-theme-plist-remove (plist keywords)
     "Remove KEYWORDS from PLIST."
-    (if keywords (use-theme-plist-remove (map-delete plist (car keywords))
-                                         (cdr keywords)) plist))
+    (if keywords
+        (use-theme-plist-remove (map-delete plist (car keywords)) (cdr keywords))
+      plist))
+
   (cl-defmacro
       use-theme
       (package &rest use-package-args &key disabled config name style custom-face &allow-other-keys)
@@ -135,27 +130,34 @@ theme can then be switched using `use-theme-switch' or
 `use-theme-toggle'."
     (declare (indent 1))
     (when (not disabled)
-      (let ((name (or name
-                      (intern (replace-regexp-in-string "-theme.*$" "" (symbol-name package))))))
+      (let* ((name
+              (or name (intern (replace-regexp-in-string "-theme.*$" "" (symbol-name package)))))
+             (names
+              (if (listp name) name (list `(style . name))))
+             (themes
+              (seq-mapcat
+               (lambda (styles)
+                 (let* ((style (car styles))
+                        (name (cdr styles))
+                        (cust-styles
+                         `(customize-set-variable 'use-theme-styles
+                                                  (use-theme-add use-theme-styles
+                                                                 (quote ,style)
+                                                                 (quote ,name))))
+                        (cust-faces
+                         `(custom-theme-set-faces (quote, name)
+                                                                 (quote ,custom-face))))
+                   `(,@(seq-filter #'identity
+                                   (list (when style cust-styles) (when custom-face cust-faces)))
+                     (customize-set-variable 'custom-safe-themes
+                                             (cons (use-theme-sha256 (quote ,name)) custom-safe-themes)))))
+               names)))
         `(use-package
-           ,package
-           ,@(use-theme-plist-remove use-package-args
-                                     '(:style
-                                       :name
-                                       :config))
-           :config ,(when style `(customize-set-variable 'use-theme-styles  (use-theme-add
-                                                                             use-theme-styles (quote
-                                                                                               ,style)
-                                                                             (quote
-                                                                              ,name))))
-           ,(when custom-face `(customize-set-variable 'use-theme-faces (use-theme-add
-                                                                         use-theme-faces (quote
-                                                                                          ,style)
-                                                                         ,custom-face)))
-           (customize-set-variable 'custom-safe-themes (cons (use-theme-sha256 (quote ,name))
-                                                             custom-safe-themes))
+             ,package
+           ,@(use-theme-plist-remove use-package-args '(:style :name :config))
+           :config ,@themes
            ,@config
-           (when (equal (length use-theme-styles) 1)
+           (when (>= (length use-theme-styles) 1)
              ;; Fix loading theme with emacs daemon
              (add-hook 'server-after-make-frame-hook #'use-theme-default)
              (use-theme-switch (caar use-theme-styles))))))))
