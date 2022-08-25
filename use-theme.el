@@ -1,4 +1,4 @@
-;;; use-theme.el -- Theme manager -*- lexical-binding: t; -*-
+;;; use-theme.el --- Theme manager -*- lexical-binding: t; -*-
 
 ;; Author: Damien Merenne
 ;; URL: https://github.com/canatella/xwwp
@@ -7,11 +7,9 @@
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "27.1") (use-package "2.4"))
 
-;; Copyright (C) 2020 Damien Merenne <dam@cosinux.org>
+;; Copyright (C) 2020-2022 Damien Merenne <dam@cosinux.org>
 
 ;; This file is NOT part of GNU Emacs.
-
-;; Copyright (C) 2021 Damien Merenne <dam@cosinux.org>
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
